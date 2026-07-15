@@ -7,6 +7,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import models
 from app.auth import router as auth_router
+from app.chats import router as chats_router
 from app.database import init_database
 
 
@@ -21,6 +22,7 @@ async def lifespan(_):
 
 app = FastAPI(title="Messenger API", lifespan=lifespan)
 app.include_router(auth_router)
+app.include_router(chats_router)
 app.mount("/static", StaticFiles(directory=FRONTEND_DIR), name="static")
 
 
