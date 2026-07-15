@@ -1,10 +1,8 @@
-from __future__ import annotations
-
 from datetime import datetime
 from typing import Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
 
@@ -17,9 +15,6 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    memberships: Mapped[list["ChatMember"]] = relationship(back_populates="user")
-    messages: Mapped[list["Message"]] = relationship(back_populates="sender")
-
 
 class Chat(Base):
     __tablename__ = "chats"
@@ -29,9 +24,6 @@ class Chat(Base):
     is_group: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
-    members: Mapped[list["ChatMember"]] = relationship(back_populates="chat")
-    messages: Mapped[list["Message"]] = relationship(back_populates="chat")
-
 
 class ChatMember(Base):
     __tablename__ = "chat_members"
@@ -40,9 +32,6 @@ class ChatMember(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), primary_key=True)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    chat: Mapped[Chat] = relationship(back_populates="members")
-    user: Mapped[User] = relationship(back_populates="memberships")
 
 
 class Message(Base):
@@ -54,6 +43,3 @@ class Message(Base):
     sender_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     text: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
-    chat: Mapped[Chat] = relationship(back_populates="messages")
-    sender: Mapped[User] = relationship(back_populates="messages")

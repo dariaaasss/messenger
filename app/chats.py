@@ -19,6 +19,10 @@ class GroupChatData(BaseModel):
     usernames: list[str]
 
 
+class ChatMemberData(BaseModel):
+    username: str
+
+
 async def find_user(session, username):
     result = await session.execute(select(User).where(User.username == username))
     return result.scalar_one_or_none()
@@ -73,6 +77,28 @@ async def find_private_chat(session, user_id, other_user_id):
             return chat
 
     return None
+
+
+async def require_group_admin(session, chat_id, user_id):
+    chat = await session.get(Chat, chat_id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="чат не найден")
+
+    membership = await session.get(ChatMember, (chat_id, user_id))
+    if membership is None:
+        raise HTTPException(status_code=404, detail="чат не найден")
+
+    if not chat.is_group:
+        raise HTTPException(
+            status_code=400,
+            detail="участников можно менять только в группе",
+        )
+
+    if not membership.is_admin:
+        raise HTTPException(
+            status_code=403,
+            detail="участников может менять только администратор",
+        )
 
 
 @router.get("")
@@ -137,7 +163,7 @@ async def create_group_chat(
     if not name or len(name) > 100:
         raise HTTPException(
             status_code=422,
-            detail="длина названия должна быть от 1 до 100 символов",
+            detail="название должно быть от 1 до 100 символов",
         )
 
     members = []
@@ -170,3 +196,64 @@ async def create_group_chat(
     await session.refresh(chat)
 
     return await chat_response(session, chat, current_user.id)
+
+
+@router.post("/{chat_id}/members", status_code=201)
+async def add_group_member(
+    chat_id: int,
+    data: ChatMemberData,
+    current_user=Depends(get_current_user),
+    session=Depends(get_session),
+):
+    await require_group_admin(session, chat_id, current_user.id)
+
+    username = data.username.strip()
+    member = await find_user(session, username)
+    if member is None:
+        raise HTTPException(status_code=404, detail="пользователь не найден")
+
+    membership = await session.get(ChatMember, (chat_id, member.id))
+    if membership is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="пользователь уже состоит в группе",
+        )
+
+    session.add(ChatMember(chat_id=chat_id, user_id=member.id))
+    await session.commit()
+
+    return {
+        "id": member.id,
+        "username": member.username,
+        "is_admin": False,
+    }
+
+
+@router.delete("/{chat_id}/members/{member_id}", status_code=204)
+async def remove_group_member(
+    chat_id: int,
+    member_id: int,
+    current_user=Depends(get_current_user),
+    session=Depends(get_session),
+):
+    await require_group_admin(session, chat_id, current_user.id)
+
+    member = await session.get(User, member_id)
+    if member is None:
+        raise HTTPException(status_code=404, detail="пользователь не найден")
+
+    if member.id == current_user.id:
+        raise HTTPException(
+            status_code=400,
+            detail="нельзя удалить самого себя",
+        )
+
+    membership = await session.get(ChatMember, (chat_id, member.id))
+    if membership is None:
+        raise HTTPException(
+            status_code=404,
+            detail="пользователь не состоит в группе",
+        )
+
+    await session.delete(membership)
+    await session.commit()

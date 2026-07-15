@@ -32,6 +32,11 @@ def normalize_username(username):
     return username
 
 
+def validate_password(password):
+    if len(password.encode()) > 72:
+        raise HTTPException(status_code=422, detail="пароль слишком длинный")
+
+
 def hash_password(password):
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
@@ -73,6 +78,7 @@ async def get_current_user(credentials=Depends(security), session=Depends(get_se
 @router.post("/register", status_code=201)
 async def register(data: Credentials, session=Depends(get_session)):
     username = normalize_username(data.username)
+    validate_password(data.password)
     result = await session.execute(select(User).where(User.username == username))
     if result.scalar_one_or_none() is not None:
         raise HTTPException(status_code=409, detail="пользователь с таким логином уже существует")
@@ -88,6 +94,7 @@ async def register(data: Credentials, session=Depends(get_session)):
 @router.post("/login")
 async def login(data: Credentials, session=Depends(get_session)):
     username = normalize_username(data.username)
+    validate_password(data.password)
     result = await session.execute(select(User).where(User.username == username))
     user = result.scalar_one_or_none()
 
