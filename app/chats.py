@@ -92,7 +92,13 @@ async def require_chat_member(session, chat_id, user_id):
     if chat is None:
         raise HTTPException(status_code=404, detail="чат не найден")
 
-    membership = await session.get(ChatMember, (chat_id, user_id))
+    result = await session.execute(
+        select(ChatMember).where(
+            ChatMember.chat_id == chat_id,
+            ChatMember.user_id == user_id,
+        )
+    )
+    membership = result.scalar_one_or_none()
     if membership is None:
         raise HTTPException(status_code=404, detail="чат не найден")
 

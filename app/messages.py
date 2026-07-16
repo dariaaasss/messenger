@@ -51,16 +51,24 @@ async def save_message(session, chat_id, sender_id, text):
 
 def remove_connection(chat_id, websocket):
     chat_connections = connections.get(chat_id, [])
-    if websocket in chat_connections:
-        chat_connections.remove(websocket)
+    for connection in chat_connections.copy():
+        if connection[1] is websocket:
+            chat_connections.remove(connection)
     if not chat_connections:
         connections.pop(chat_id, None)
 
 
-async def broadcast_message(chat_id, data):
-    for websocket in connections.get(chat_id, []).copy():
+async def broadcast_message(session, chat_id, data):
+    for user_id, websocket in connections.get(chat_id, []).copy():
         try:
+            await require_chat_member(session, chat_id, user_id)
             await websocket.send_json(data)
+        except HTTPException:
+            remove_connection(chat_id, websocket)
+            try:
+                await websocket.close(code=1008)
+            except RuntimeError:
+                pass
         except (RuntimeError, WebSocketDisconnect):
             remove_connection(chat_id, websocket)
 
@@ -76,7 +84,7 @@ async def send_message(
     text = normalize_message_text(data.text)
     message = await save_message(session, chat_id, current_user.id, text)
     response = message_response(message, current_user)
-    await broadcast_message(chat_id, {"type": "message", **response})
+    await broadcast_message(session, chat_id, {"type": "message", **response})
     return response
 
 
@@ -154,7 +162,7 @@ async def chat_websocket(
         return
 
     await websocket.accept()
-    connections.setdefault(chat_id, []).append(websocket)
+    connections.setdefault(chat_id, []).append((user.id, websocket))
 
     try:
         while True:
@@ -173,6 +181,12 @@ async def chat_websocket(
                 continue
 
             try:
+                await require_chat_member(session, chat_id, user.id)
+            except HTTPException:
+                await websocket.close(code=1008)
+                return
+
+            try:
                 text = normalize_message_text(data["text"])
             except HTTPException as error:
                 await websocket.send_json(
@@ -182,7 +196,7 @@ async def chat_websocket(
 
             message = await save_message(session, chat_id, user.id, text)
             response = message_response(message, user)
-            await broadcast_message(chat_id, {"type": "message", **response})
+            await broadcast_message(session, chat_id, {"type": "message", **response})
     except WebSocketDisconnect:
         pass
     finally:
