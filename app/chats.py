@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from app.auth import get_current_user
 from app.database import get_session
-from app.models import Chat, ChatMember, User
+from app.models import Chat, ChatMember, Message, User
 
 
 router = APIRouter(prefix="/api/chats", tags=["chats"])
@@ -38,7 +38,13 @@ async def get_chat_members(session, chat_id):
     return result.all()
 
 
-async def chat_response(session, chat, current_user_id):
+async def chat_response(
+    session,
+    chat,
+    current_user_id,
+    message_count=0,
+    last_message=None,
+):
     rows = await get_chat_members(session, chat.id)
     members = [
         {
@@ -59,6 +65,8 @@ async def chat_response(session, chat, current_user_id):
         "name": name,
         "is_group": chat.is_group,
         "members": members,
+        "message_count": message_count,
+        "last_message": last_message,
         "created_at": chat.created_at,
     }
 
@@ -109,14 +117,47 @@ async def require_group_admin(session, chat_id, user_id):
 
 @router.get("")
 async def get_chats(current_user=Depends(get_current_user), session=Depends(get_session)):
-    result = await session.execute(
-        select(Chat)
-        .join(ChatMember)
-        .where(ChatMember.user_id == current_user.id)
-        .order_by(Chat.id.desc())
+    message_counts = (
+        select(
+            Message.chat_id,
+            func.count(Message.id).label("message_count"),
+            func.max(Message.id).label("last_message_id"),
+        )
+        .group_by(Message.chat_id)
+        .subquery()
     )
-    chats = result.scalars().all()
-    return [await chat_response(session, chat, current_user.id) for chat in chats]
+    last_message = (
+        select(Message.text)
+        .where(Message.chat_id == Chat.id)
+        .order_by(Message.id.desc())
+        .limit(1)
+        .scalar_subquery()
+    )
+
+    result = await session.execute(
+        select(
+            Chat,
+            func.coalesce(message_counts.c.message_count, 0),
+            last_message,
+        )
+        .join(ChatMember)
+        .outerjoin(message_counts, message_counts.c.chat_id == Chat.id)
+        .where(ChatMember.user_id == current_user.id)
+        .order_by(
+            func.coalesce(message_counts.c.last_message_id, 0).desc(),
+            Chat.id.desc(),
+        )
+    )
+    return [
+        await chat_response(
+            session,
+            chat,
+            current_user.id,
+            message_count,
+            last_message_text,
+        )
+        for chat, message_count, last_message_text in result.all()
+    ]
 
 
 @router.post("/private", status_code=201)

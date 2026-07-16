@@ -8,8 +8,8 @@
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
   <body>
-    <main class="page">
-      <header class="topbar">
+    <main class="auth-page" id="auth-view">
+      <header class="auth-topbar">
         <a class="brand" href="/">
           <span class="logo">M</span>
           <span>messenger</span>
@@ -21,14 +21,14 @@
       </header>
 
       <section class="auth-card" aria-labelledby="form-title">
-        <div class="heading">
+        <div class="auth-heading">
           <h1 id="form-title">Добро пожаловать</h1>
           <p id="form-subtitle">Войдите, чтобы продолжить общение</p>
         </div>
 
         <div class="mode-switch" role="tablist" aria-label="Режим авторизации">
-          <button class="mode-button active" type="button" role="tab" aria-selected="true" data-mode="login">Вход</button>
-          <button class="mode-button" type="button" role="tab" aria-selected="false" data-mode="register">Регистрация</button>
+          <button class="mode-button active" type="button" role="tab" aria-selected="true" data-auth-mode="login">Вход</button>
+          <button class="mode-button" type="button" role="tab" aria-selected="false" data-auth-mode="register">Регистрация</button>
         </div>
 
         <form id="auth-form" novalidate>
@@ -40,22 +40,159 @@
 
           <label class="field">
             <span>Пароль</span>
-            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Введите пароль" required />
+            <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Введите пароль" maxlength="72" required />
             <small class="field-error" data-error-for="password"></small>
           </label>
 
           <label class="field confirm-field" hidden>
             <span>Повторите пароль</span>
-            <input id="password-confirm" name="password_confirm" type="password" autocomplete="new-password" placeholder="Введите пароль ещё раз" />
+            <input id="password-confirm" name="password_confirm" type="password" autocomplete="new-password" placeholder="Введите пароль ещё раз" maxlength="72" />
             <small class="field-error" data-error-for="password-confirm"></small>
           </label>
 
-          <button class="submit-button" type="submit" id="submit-button">Войти</button>
+          <p class="form-error" id="auth-error" aria-live="polite"></p>
+          <button class="primary-button auth-submit" type="submit" id="submit-button">Войти</button>
         </form>
       </section>
 
-      <footer>учебный проект · 2026</footer>
+      <footer class="auth-footer">учебный проект · 2026</footer>
     </main>
+
+    <main class="messenger" id="app-view" hidden>
+      <aside class="sidebar">
+        <header class="sidebar-header">
+          <a class="brand" href="/">
+            <span class="logo">M</span>
+            <span>messenger</span>
+          </a>
+          <button class="text-button" id="logout-button" type="button">Выйти</button>
+        </header>
+
+        <section class="profile-row">
+          <span class="avatar" id="user-avatar"></span>
+          <div class="profile-text">
+            <strong id="current-username"></strong>
+            <span>в сети</span>
+          </div>
+          <button class="primary-button compact-button" id="new-chat-button" type="button">Новый чат</button>
+        </section>
+
+        <div class="sidebar-title">
+          <h2>Чаты</h2>
+          <span id="chat-count">0</span>
+        </div>
+
+        <div class="chat-list" id="chat-list"></div>
+      </aside>
+
+      <section class="conversation">
+        <div class="empty-chat" id="empty-chat">
+          <span class="empty-chat-logo">M</span>
+          <h1>Выберите чат</h1>
+          <p>Откройте диалог слева или создайте новый</p>
+        </div>
+
+        <div class="chat-view" id="chat-view" hidden>
+          <header class="chat-header">
+            <button class="back-button" id="back-button" type="button" aria-label="Вернуться к списку чатов">←</button>
+            <div class="chat-heading">
+              <h1 id="active-chat-name"></h1>
+              <p>
+                <span id="active-chat-meta"></span>
+                <span class="connection-status" id="connection-status"></span>
+              </p>
+            </div>
+            <button class="secondary-button" id="members-button" type="button" hidden>Участники</button>
+          </header>
+
+          <form class="search-form" id="search-form">
+            <input id="search-input" type="search" placeholder="Поиск по сообщениям" autocomplete="off" />
+            <button class="secondary-button" type="submit">Найти</button>
+            <button class="text-button" id="reset-search-button" type="button" hidden>Сбросить</button>
+            <p class="search-summary" id="search-summary" hidden></p>
+          </form>
+
+          <div class="messages" id="messages">
+            <button class="load-more-button" id="load-more-button" type="button" hidden>Загрузить предыдущие</button>
+            <div class="message-list" id="message-list"></div>
+          </div>
+
+          <form class="message-form" id="message-form">
+            <textarea id="message-input" rows="1" maxlength="4000" placeholder="Напишите сообщение" required></textarea>
+            <button class="primary-button send-button" type="submit">Отправить</button>
+          </form>
+        </div>
+      </section>
+
+      <div class="notice" id="notice" role="status" aria-live="polite" hidden></div>
+    </main>
+
+    <dialog class="modal" id="create-chat-dialog">
+      <form class="modal-content" id="create-chat-form" novalidate>
+        <header class="modal-header">
+          <div>
+            <h2>Новый чат</h2>
+            <p>Создайте личный диалог или группу</p>
+          </div>
+          <button class="close-button" type="button" data-close-dialog="create-chat-dialog" aria-label="Закрыть">×</button>
+        </header>
+
+        <div class="mode-switch" role="tablist" aria-label="Тип чата">
+          <button class="mode-button active" type="button" role="tab" aria-selected="true" data-chat-mode="private">Личный</button>
+          <button class="mode-button" type="button" role="tab" aria-selected="false" data-chat-mode="group">Группа</button>
+        </div>
+
+        <div class="private-chat-fields">
+          <label class="field">
+            <span>Логин собеседника</span>
+            <input id="private-username" type="text" maxlength="50" placeholder="Например, alex" />
+          </label>
+        </div>
+
+        <div class="group-chat-fields" hidden>
+          <label class="field">
+            <span>Название группы</span>
+            <input id="group-name" type="text" maxlength="100" placeholder="Например, Учебная группа" />
+          </label>
+          <label class="field">
+            <span>Участники</span>
+            <input id="group-usernames" type="text" placeholder="alex, maria" />
+            <small class="field-hint">Укажите логины через запятую</small>
+          </label>
+        </div>
+
+        <p class="form-error" id="create-chat-error" aria-live="polite"></p>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-close-dialog="create-chat-dialog">Отмена</button>
+          <button class="primary-button" id="create-chat-submit" type="submit">Создать</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="members-dialog">
+      <div class="modal-content">
+        <header class="modal-header">
+          <div>
+            <h2>Участники</h2>
+            <p id="members-subtitle"></p>
+          </div>
+          <button class="close-button" type="button" data-close-dialog="members-dialog" aria-label="Закрыть">×</button>
+        </header>
+
+        <div class="member-list" id="member-list"></div>
+
+        <form class="add-member-form" id="add-member-form" novalidate>
+          <label class="field">
+            <span>Добавить участника</span>
+            <div class="inline-field">
+              <input id="member-username" type="text" maxlength="50" placeholder="Введите логин" />
+              <button class="primary-button" type="submit">Добавить</button>
+            </div>
+          </label>
+          <p class="form-error" id="member-error" aria-live="polite"></p>
+        </form>
+      </div>
+    </dialog>
 
     <script src="/static/app.js" defer></script>
   </body>
