@@ -2,6 +2,8 @@
 
 Мессенджер на FastAPI и SQLAlchemy.
 
+Демонстрация: [видео работы приложения](https://disk.yandex.ru/i/yVzSSKOGLxjW7g).
+
 ## Локальный запуск
 
 Нужен Python 3.9 или новее.
