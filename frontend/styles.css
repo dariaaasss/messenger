@@ -875,7 +875,7 @@ button:disabled {
   gap: 8px;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 710px) {
   body {
     background: #fff;
   }
