@@ -383,7 +383,15 @@ function renderMessages() {
       text.textContent = message.text;
     }
     bubble.append(text);
-    bubble.append(createElement("time", "message-time", formatTime(message.created_at)));
+    const meta = createElement("div", "message-meta");
+    meta.append(createElement("time", "message-time", formatTime(message.created_at)));
+    if (own) {
+      const status = createElement("span", "message-status", "✓");
+      status.title = "отправлено";
+      status.setAttribute("aria-label", "отправлено");
+      meta.append(status);
+    }
+    bubble.append(meta);
     row.append(bubble);
     messageList.append(row);
   });

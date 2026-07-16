@@ -691,15 +691,25 @@ button:disabled {
   background: #ffe078;
 }
 
-.message-time {
-  display: block;
+.message-meta {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 3px;
   margin-top: 4px;
   color: #9a9fae;
-  font-size: 8px;
-  text-align: right;
 }
 
-.message-row.own .message-time {
+.message-time {
+  font-size: 8px;
+}
+
+.message-status {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.message-row.own .message-meta {
   color: rgba(255, 255, 255, 0.72);
 }
 
