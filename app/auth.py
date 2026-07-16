@@ -59,16 +59,22 @@ def authorization_error():
     )
 
 
+def decode_token(token):
+    if not token:
+        raise authorization_error()
+
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return int(payload["sub"])
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        raise authorization_error()
+
+
 async def get_current_user(credentials=Depends(security), session=Depends(get_session)):
     if credentials is None:
         raise authorization_error()
 
-    try:
-        payload = jwt.decode(credentials.credentials, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        user_id = int(payload["sub"])
-    except (jwt.InvalidTokenError, KeyError, ValueError):
-        raise authorization_error()
-
+    user_id = decode_token(credentials.credentials)
     user = await session.get(User, user_id)
     if user is None:
         raise authorization_error()

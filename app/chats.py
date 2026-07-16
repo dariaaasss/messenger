@@ -79,7 +79,7 @@ async def find_private_chat(session, user_id, other_user_id):
     return None
 
 
-async def require_group_admin(session, chat_id, user_id):
+async def require_chat_member(session, chat_id, user_id):
     chat = await session.get(Chat, chat_id)
     if chat is None:
         raise HTTPException(status_code=404, detail="чат не найден")
@@ -87,6 +87,12 @@ async def require_group_admin(session, chat_id, user_id):
     membership = await session.get(ChatMember, (chat_id, user_id))
     if membership is None:
         raise HTTPException(status_code=404, detail="чат не найден")
+
+    return chat, membership
+
+
+async def require_group_admin(session, chat_id, user_id):
+    chat, membership = await require_chat_member(session, chat_id, user_id)
 
     if not chat.is_group:
         raise HTTPException(
